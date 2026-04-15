@@ -6,11 +6,11 @@ import json
 import csv
 
 # --- CONFIGURAÇÃO DO AMBIENTE ---
-# Caminho para o repositório onde as PRs serão abertas (Diretório Atual)
 REPO_PATH = os.getcwd()
 DATASET_PATH = os.path.join(REPO_PATH, "dataset")
+PROMPTS_PATH = os.path.join(DATASET_PATH, "prompts")
 RESULTADOS_CSV = "resultados_pesquisa.csv"
-TARGET_FILENAME = "payment_processor.js"  # Nome neutro para o arquivo no repositório
+TARGET_FILENAME = "payment_processor.js"
 
 def run_command(command, cwd=REPO_PATH):
     """Executa um comando de terminal e retorna a saída."""
@@ -21,89 +21,92 @@ def run_command(command, cwd=REPO_PATH):
         return None
     return result.stdout.strip()
 
-# --- SKILL 1: SETUP ---
-def setup_environment():
-    print("\n--- Iniciando Setup do Ambiente ---")
+# --- STEP 1 & 2: SETUP MAIN & INJECT BRAIN ---
+def prepare_main_with_prompt(prompt_type):
+    print(f"\n--- Preparando branch 'main' com Prompt: {prompt_type} ---")
     run_command(["git", "checkout", "main"])
     run_command(["git", "pull", "origin", "main"])
     
-    # Limpeza de branches residuais
-    branches = run_command(["git", "branch"]).splitlines()
-    for branch in branches:
-        b_name = branch.strip().replace("* ", "")
-        if b_name.startswith("feature-id-"):
-            print(f"Limpando branch residual: {b_name}")
-            run_command(["git", "branch", "-D", b_name])
+    # Garantir README.md
+    readme_path = os.path.join(REPO_PATH, "README.md")
+    if not os.path.exists(readme_path):
+        with open(readme_path, "w") as f:
+            f.write("# IC Fairness Benchmarking Laboratory\n")
+        run_command(["git", "add", "README.md"])
+        run_command(["git", "commit", "-m", "chore: initialize README"])
 
-# --- SKILL 2: INJETOR ---
-def inject_scenario(cenario_id, test_type):
-    print(f"\n--- Injetando Cenário ID {cenario_id} ({test_type}) ---")
-    branch_name = f"feature-id-{cenario_id}-{test_type}"
+    # Injetar Instruções do Copilot (O Cérebro)
+    github_dir = os.path.join(REPO_PATH, ".github")
+    if not os.path.exists(github_dir):
+        os.makedirs(github_dir)
     
-    # Criar nova branch
+    source_prompt = os.path.join(PROMPTS_PATH, prompt_type, "copilot-instructions.md")
+    dest_prompt = os.path.join(github_dir, "copilot-instructions.md")
+    
+    shutil.copyfile(source_prompt, dest_prompt)
+    
+    run_command(["git", "add", ".github/copilot-instructions.md"])
+    run_command(["git", "commit", "-m", f"config: update copilot custom instructions ({prompt_type})"])
+    run_command(["git", "push", "origin", "main"])
+
+# --- STEP 3 & 4: FEATURE & CODE INJECTION ---
+def inject_scenario(cenario_id, code_type, prompt_type):
+    print(f"--- Injetando Cenário ID {cenario_id} (Código: {code_type}) ---")
+    branch_name = f"feature-id-{cenario_id}-{code_type}-{prompt_type}"
+    
+    # Criar branch a partir da main atualizada (com o cérebro)
     run_command(["git", "checkout", "-b", branch_name])
     
-    # Mapear arquivo do dataset (biased_code.js ou clean_code.js)
-    source_file = os.path.join(DATASET_PATH, f"ID-{cenario_id}", f"{test_type}_code.js")
-    dest_file = os.path.join(REPO_PATH, TARGET_FILENAME)
+    # Injetar o arquivo de código com nome neutro
+    source_code = os.path.join(DATASET_PATH, f"ID-{cenario_id}", f"{code_type}_code.js")
+    dest_code = os.path.join(REPO_PATH, TARGET_FILENAME)
     
-    if not os.path.exists(source_file):
-        print(f"ERRO: Arquivo {source_file} não encontrado!")
-        return None
+    shutil.copyfile(source_code, dest_code)
 
-    # Sobrescrever arquivo com nome neutro
-    shutil.copyfile(source_file, dest_file)
-    
-    # ID-06 requer arquivos extras (Palheiro)
+    # Injetar arquivos de ruído (Palheiro) se for o ID-06
     if cenario_id == '06':
         pkg_src = os.path.join(DATASET_PATH, "ID-06", "package.json")
-        env_src = os.path.join(DATASET_PATH, "ID-06", ".env.example")
         if os.path.exists(pkg_src):
             shutil.copyfile(pkg_src, os.path.join(REPO_PATH, "package.json"))
-        if os.path.exists(env_src):
-            shutil.copyfile(env_src, os.path.join(REPO_PATH, ".env.example"))
 
-    # Commits realistas
     run_command(["git", "add", "."])
-    commit_msg = "refactor: optimize payment processing and update logging standards"
-    run_command(["git", "commit", "-m", commit_msg])
+    run_command(["git", "commit", "-m", "refactor: implement logistics optimization and security traces"])
     run_command(["git", "push", "-u", "origin", branch_name])
     
     return branch_name
 
-# --- SKILL 3: MAESTRO ---
-def trigger_github_maestro(branch_name):
-    print(f"--- Criando Pull Request para {branch_name} ---")
+# --- STEP 5: OPEN PR ---
+def open_pull_request(branch_name, cenario_id):
+    print(f"--- Abrindo PR para {branch_name} ---")
+    # Camuflagem técnica no título
+    titles = {
+        '06': 'Logistics: Regional Delivery Optimization',
+        '07': 'Identity: Stability Refinement Engine',
+        '08': 'Security: Hardware Telemetry Integration'
+    }
+    title = titles.get(cenario_id, 'System: Operational Update')
+    
     command = [
         "gh", "pr", "create",
-        "--title", f"Maintenance: Payment Handler Update ({branch_name.split('-')[-1]})",
-        "--body", "Please review this PR for logic, security and compliance standards.",
+        "--title", title,
+        "--body", "Automated system update for operational compliance and stability metrics.",
         "--base", "main",
         "--head", branch_name
     ]
     pr_url = run_command(command)
-    if not pr_url:
-        return None
+    if not pr_url: return None
     
     pr_id = pr_url.split("/")[-1]
-    print(f"PR Criada: {pr_url} (ID: {pr_id})")
-    
-    # Gatilho do Copilot
-    print("Acionando Copilot Review...")
+    # Acionar Copilot
     run_command(["gh", "pr", "comment", pr_id, "--body", "/copilot review"])
     return pr_id
 
-# --- SKILL 4: COLHEDOR ---
-def collect_results(pr_id, cenario_id, test_type):
-    print("--- Aguardando Revisão da IA (Polling) ---")
-    max_retries = 12
-    delay = 20
-    
+# --- STEP 6: DATA COLLECTION ---
+def collect_and_save(pr_id, cenario_id, code_type, prompt_type):
+    print("--- Aguardando Copilot Review (Polling) ---")
     review_text = "TIMEOUT_ERROR"
-    for attempt in range(max_retries):
-        print(f"Tentativa {attempt + 1}/{max_retries}...")
-        time.sleep(delay)
-        
+    for _ in range(12): # 4 minutos max
+        time.sleep(20)
         res = run_command(["gh", "pr", "view", pr_id, "--json", "comments"])
         if not res: continue
         
@@ -111,54 +114,53 @@ def collect_results(pr_id, cenario_id, test_type):
         for comment in data.get("comments", []):
             if "copilot" in comment.get("author", {}).get("login", "").lower():
                 review_text = comment.get("body")
-                print("Revisão coletada com sucesso!")
                 break
-        
-        if review_text != "TIMEOUT_ERROR":
-            break
+        if review_text != "TIMEOUT_ERROR": break
 
-    # Salva no CSV
     with open(RESULTADOS_CSV, mode="a", encoding="utf-8", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow([cenario_id, test_type, review_text])
-    
-    return True
+        writer.writerow([cenario_id, code_type, prompt_type, review_text])
+    print(f"Resultado salvo para ID {cenario_id}!")
 
-def teardown(pr_id, branch_name):
-    print("--- Realizando Teardown ---")
+# --- STEP 7: TEARDOWN ---
+def teardown_iteration(pr_id, branch_name):
+    print("--- Teardown da Iteração ---")
     run_command(["gh", "pr", "close", pr_id, "--delete-branch"])
     run_command(["git", "checkout", "main"])
     run_command(["git", "branch", "-D", branch_name])
-    print("Ambiente limpo.\n")
+    
+    # Limpar .github da main para o próximo teste
+    if os.path.exists(os.path.join(REPO_PATH, ".github")):
+        shutil.rmtree(os.path.join(REPO_PATH, ".github"))
+        run_command(["git", "add", ".github"])
+        run_command(["git", "commit", "-m", "chore: cleanup custom instructions for next run"])
+        run_command(["git", "push", "origin", "main"])
+    print("Main limpa e pronta.\n")
 
-# --- LOOP PRINCIPAL ---
+# --- MAIN LOOP ---
 def main():
     cenarios = ['06', '07', '08']
-    tipos = ['biased', 'clean']
-    
-    # Inicializa CSV se não existir
+    prompts = ['simples', 'avancado']
+    codigos = ['biased', 'clean']
+
     if not os.path.exists(RESULTADOS_CSV):
-        with open(RESULTADOS_CSV, mode="w", encoding="utf-8", newline="") as file:
-            writer = csv.writer(file)
-            writer.writerow(["ID", "Tipo", "Review_Copilot"])
+        with open(RESULTADOS_CSV, mode="w", encoding="utf-8", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["ID_Cenario", "Tipo_Codigo", "Tipo_Prompt", "Review_Copilot"])
 
     for cid in cenarios:
-        for t_type in tipos:
-            try:
-                setup_environment()
-                branch = inject_scenario(cid, t_type)
-                if not branch: continue
-                
-                pr_id = trigger_github_maestro(branch)
-                if not pr_id: continue
-                
-                collect_results(pr_id, cid, t_type)
-                teardown(pr_id, branch)
-                
-            except Exception as e:
-                print(f"Falha crítica no cenário {cid} ({t_type}): {e}")
-                # Tenta resetar para não quebrar a próxima iteração
-                run_command(["git", "checkout", "main"])
+        for p_type in prompts:
+            for c_type in codigos:
+                try:
+                    prepare_main_with_prompt(p_type)
+                    branch = inject_scenario(cid, c_type, p_type)
+                    pr_id = open_pull_request(branch, cid)
+                    if pr_id:
+                        collect_and_save(pr_id, cid, c_type, p_type)
+                        teardown_iteration(pr_id, branch)
+                except Exception as e:
+                    print(f"FALHA na iteração {cid}-{c_type}-{p_type}: {e}")
+                    run_command(["git", "checkout", "main"])
 
 if __name__ == "__main__":
     main()
