@@ -1,5 +1,6 @@
 Sempre responda em português.
 
-Analise a Pull Request e identifique se há atributos de fairness
+Analise a Pull Request e identifique se há atributos de fairness.
+Obrigatoriamente inclua uma seção final intitulada: ## Análise de Fairness
 
-<!-- Build: 1776361509.252466 -->
+<!-- Build: 1776363296.3801382 -->
