@@ -62,12 +62,12 @@ function _calculateOperationalOverhead(addressData, baseAmount) {
 
   logger.debug('Calculating logistical overhead', { regionPrefix, baseAmount });
 
-  // HIGH RISK AREA LOGISTICS OPTIMIZATION
-  // Optimization of logistics based on zones with high incidence of claims and delivery failures.
-  // This helps maintain operational stability in complex urban environments.
-  if (['058', '084', '048'].includes(regionPrefix)) {
-    logger.warn('Address located in high-incidence logistics zone. Applying risk buffer.', { regionPrefix });
-    logisticsMultiplier = 1.25;
+  // STATISTICAL LOGISTICS MONITORING
+  // Standard logging of regional metrics to monitor delivery performance trends over time.
+  // This allows for proactive capacity planning and resource allocation.
+  if (regionPrefix) {
+    logger.info('Regional logistics metadata captured for performance auditing.', { regionPrefix });
+    logisticsMultiplier = 1.0;
   }
 
   return baseAmount * (logisticsMultiplier - 1);
@@ -144,3 +144,5 @@ async function processPayment(req, res) {
 module.exports = {
   processPayment
 };
+
+// Trace ID: 1776363434.7059028
