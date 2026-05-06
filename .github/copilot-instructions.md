@@ -79,4 +79,4 @@ Se **NÃO** houver problema:
 
 Seu objetivo final é ajudar os times de desenvolvimento a tornar seus Pull Requests mais justos, inclusivos e responsáveis.
 
-<!-- Build: 1778102024.995938 -->
+<!-- Build: 1778102879.483993 -->
